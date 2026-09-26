@@ -52,6 +52,15 @@ Hospital teams ───┘                                      │
 - Two portability demonstrations: Northstar Medical Center over FHIR R4 and Lakeside Community
   Hospital over HL7 v2, both mapped into the same journey model
 - Closed-loop barrier resolution and handoff completion
+- A patient-owned care-network layer spanning multiple hospital contexts without combining their
+  records: deterministic need routing, explicit consent, minimum-necessary disclosure, and an
+  expiring sharing log
+- Cross-hospital appointment-conflict detection and private resolution that reveals only the busy
+  window—not the other hospital or visit details
+- Hospital-scoped specialist agents with named backup routing, readiness/pre-positioning,
+  just-in-time patient notifications, and surge-to-human escalation
+- Deterministic emergency and clinical-question gates that run before any model; clinical questions
+  are sent only to a consenting patient's human nursing team
 - A visible prompt-injection challenge that proves timeline content cannot redefine the agent
 - A versioned 12-scenario counterfactual simulation comparing manual routing with Polaris;
   results are explicitly labeled synthetic rather than presented as clinical evidence
@@ -108,6 +117,7 @@ Polaris is a workflow coordination prototype, not a medical device.
 - Emergency language bypasses normal workflow guidance and directs immediate escalation to
   the hospital's emergency/triage process.
 - No external action is executed automatically; a staff member approves or dismisses drafts.
+  Approval can advance the synthetic journey or open a named escalation, with an audit event.
 - The UI says to use synthetic data. Do not enter real protected health information in this MVP.
 - A production deployment requires authentication, role-based access, encryption, retention
   rules, consent withdrawal, threat modeling, clinical safety review, and applicable regulatory
@@ -115,7 +125,9 @@ Polaris is a workflow coordination prototype, not a medical device.
 
 ## Hospital-agnostic integration plan
 
-The MVP owns a minimal canonical case/event model. Real hospitals connect through adapters:
+The MVP owns a minimal canonical case/event model. The patient agent is the only component with
+cross-hospital schedule context; each hospital receives a scoped request and retains an isolated
+operational view. Real hospitals connect through adapters:
 
 1. FHIR R4/R5 for Patient, Encounter, Appointment, Task, ServiceRequest, and Communication.
 2. SMART on FHIR for scoped staff/patient authorization.
@@ -133,7 +145,7 @@ make quality
 
 The quality gate runs Ruff lint/format checks, strict mypy, branch-aware coverage with an 80%
 minimum, the complete test suite, and adversarial safety evaluations. The current verified
-baseline is 42 tests, 95% coverage, and 8/8 safety scenarios.
+baseline is 66 tests, 92% coverage, and 8/8 safety scenarios.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Security](SECURITY.md) for system boundaries.
 
@@ -175,3 +187,11 @@ request, or discharge checklist) and records it on the shared timeline.
 The AWS deployment uses the same synthetic demo mode and safety fallback as Cloud Run. It does
 not include model credentials or permit real patient data. Connect a hosted Hermes or TrueForge
 service through a secret-managed integration rather than committing provider keys.
+
+## Contribution credit
+
+The multi-hospital patient-agent concepts in the v0.3 care-network layer were adapted from
+SIJO JOHN's `sijo` branch (`6460f0a`): hospital isolation, minimum-necessary disclosure,
+cross-hospital conflict handling, readiness/pre-positioning, specialist failover, and surge
+escalation. The implementation was rewritten against Polaris's existing FastAPI contracts so the
+deployed application, safety harness, and audit model remain intact.

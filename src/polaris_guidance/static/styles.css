@@ -52,6 +52,24 @@ h1 em { color: var(--green); font-weight: 400; }
 .adapter strong { font-size: .76rem; }
 .adapter small { margin-top: 2px; color: #91a399; font-size: .65rem; }
 .adapter-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 4px #d9f5a81c; }
+.network { margin: 20px 0 26px; padding: 30px; background: var(--white); border: 1px solid var(--line); border-radius: 22px; }
+.network-head { display: flex; justify-content: space-between; gap: 25px; align-items: end; }
+.network-head h2 { margin: 6px 0 0; font: 400 2.5rem/1 "Instrument Serif", serif; }
+.network-head h2 em { color: var(--green); font-weight: 400; }
+.privacy-boundary { display: grid; max-width: 300px; padding: 14px; color: #315f49; background: #eff7f0; border-radius: 12px; font-size: .75rem; }
+.privacy-boundary span { margin-top: 4px; color: var(--muted); }
+.network-hospitals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.network-hospital { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 12px; align-items: center; padding: 15px; border: 1px solid var(--line); border-radius: 13px; font-size: .7rem; }
+.network-hospital > div { display: grid; grid-template-columns: auto 1fr; column-gap: 9px; align-items: center; }
+.network-hospital > div small { grid-column: 2; color: var(--muted); }
+.network-hospital > span { color: var(--muted); }
+.network-console { display: grid; grid-template-columns: 1.8fr .7fr auto auto; gap: 9px; align-items: end; margin-top: 12px; padding: 14px; background: #f8faf6; border-radius: 13px; }
+.network-console label { margin: 0; }
+.network-console input, .network-console select { margin-top: 6px; }
+.network-console button { height: 42px; white-space: nowrap; }
+.network-result { margin-top: 10px; padding: 13px 15px; color: var(--muted); border-left: 3px solid var(--green); background: #f5f8f3; font-size: .78rem; }
+.network-result strong { color: var(--green); text-transform: capitalize; }
+.network-result small { display: block; margin-top: 5px; }
 .workspace { display: grid; grid-template-columns: 320px 1fr; min-height: 610px; background: var(--white); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; box-shadow: 0 18px 60px rgba(30, 60, 42, .07); }
 aside { padding: 20px; background: #fbfcf9; border-right: 1px solid var(--line); }
 .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -143,4 +161,4 @@ textarea { min-height: 90px; resize: vertical; }
 .consent input { width: auto; }
 #toast { position: fixed; right: 25px; bottom: 25px; max-width: 400px; padding: 13px 17px; border-radius: 10px; color: white; background: var(--ink); opacity: 0; transform: translateY(12px); transition: .2s; pointer-events: none; }
 #toast.show { opacity: 1; transform: translateY(0); }
-@media (max-width: 850px) { .hero, .proof { grid-template-columns: 1fr; } .evidence { grid-template-columns: 1fr 1fr; } .proof-arrow { display: none; } .adapters { flex-direction: column; } .workspace { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } .metrics { grid-template-columns: 1fr; } .forecast { grid-template-columns: 1fr; } .forecast > div { border-right: 0; border-bottom: 1px solid var(--line); } .forecast > div:last-child { border-bottom: 0; } .stages { overflow-x: auto; } .stage { min-width: 85px; } }
+@media (max-width: 850px) { .hero, .proof { grid-template-columns: 1fr; } .evidence { grid-template-columns: 1fr 1fr; } .proof-arrow { display: none; } .adapters { flex-direction: column; } .network-head { align-items: start; flex-direction: column; } .network-hospitals { grid-template-columns: 1fr; } .network-hospital { grid-template-columns: 1fr 1fr; } .network-console { grid-template-columns: 1fr; } .workspace { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } .metrics { grid-template-columns: 1fr; } .forecast { grid-template-columns: 1fr; } .forecast > div { border-right: 0; border-bottom: 1px solid var(--line); } .forecast > div:last-child { border-bottom: 0; } .stages { overflow-x: auto; } .stage { min-width: 85px; } }

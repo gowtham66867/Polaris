@@ -1,4 +1,4 @@
-const state = { cases: [], selected: null, detail: null, graph: null, evidence: null, hospitals: [] };
+const state = { cases: [], selected: null, detail: null, graph: null, evidence: null, hospitals: [], ecosystem: null };
 const stages = ["arrival", "registration", "triage", "clinical_review", "diagnostics", "treatment", "discharge"];
 
 const api = async (path, options = {}) => {
@@ -13,12 +13,13 @@ const nice = value => value.replaceAll("_", " ");
 const time = value => new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 async function load() {
-  const [cases, metrics, evidence, hospitals, health] = await Promise.all([
-    api("/api/cases"), api("/api/metrics"), api("/api/evidence"), api("/api/hospitals"), api("/api/health"),
+  const [cases, metrics, evidence, hospitals, health, ecosystem] = await Promise.all([
+    api("/api/cases"), api("/api/metrics"), api("/api/evidence"), api("/api/hospitals"), api("/api/health"), api("/api/ecosystem"),
   ]);
   state.cases = cases;
   state.evidence = evidence;
   state.hospitals = hospitals;
+  state.ecosystem = ecosystem;
   document.querySelector("#model-status").textContent = !health.llm_connected
     ? `Live agents offline · Safe fallback active`
     : health.llm_provider === "hermes"
@@ -27,8 +28,60 @@ async function load() {
   state.health = health;
   renderMetrics(metrics);
   renderEvidence();
+  renderNetwork();
   renderCases();
   if (state.selected) await selectCase(state.selected);
+}
+
+function renderNetwork() {
+  const network = state.ecosystem;
+  document.querySelector("#privacy-boundary").textContent = network.privacy_boundary;
+  document.querySelector("#network-hospitals").innerHTML = network.hospitals.map(hospital => {
+    const available = Object.values(hospital.specialists).filter(agent => agent.available).length;
+    const total = Object.keys(hospital.specialists).length;
+    const surges = Object.entries(hospital.surges).filter(([, active]) => active).map(([name]) => name);
+    return `<div class="network-hospital">
+      <div><span class="adapter-dot"></span><strong>${escapeHtml(hospital.name)}</strong><small>${escapeHtml(hospital.standard)}</small></div>
+      <span>${available}/${total} agents online</span>
+      <span>${surges.length ? `Surge: ${escapeHtml(surges.join(", "))}` : "Normal operations"}</span>
+      <span>${hospital.human_escalations} human escalations</span>
+    </div>`;
+  }).join("");
+  const conflicts = network.open_conflicts.length;
+  document.querySelector("#resolve-conflict").disabled = conflicts === 0;
+  document.querySelector("#resolve-conflict").textContent = conflicts
+    ? `Resolve schedule conflict (${conflicts})`
+    : "Conflict resolved";
+}
+
+async function routeNetworkRequest() {
+  const text = document.querySelector("#network-message").value.trim();
+  const hospitalId = document.querySelector("#network-hospital").value;
+  if (!text) return;
+  try {
+    const result = await api("/api/patient-agent/route", {
+      method: "POST",
+      body: JSON.stringify({
+        patient_id: "demo-patient", text, hospital_id: hospitalId, consent_to_share: true,
+        payload: { zone: "cafeteria", appointment_id: "SM-APT-901", insurance: "not-needed" },
+      }),
+    });
+    document.querySelector("#network-result").innerHTML = `<strong>${escapeHtml(nice(result.status))}</strong> · ${escapeHtml(result.message)}<small>Shared: ${escapeHtml((result.shared_fields || []).join(", ") || "nothing")} · Removed: ${escapeHtml((result.stripped_fields || []).join(", ") || "nothing")}</small>`;
+    await load();
+  } catch (error) { toast(error.message); }
+}
+
+async function resolveNetworkConflict() {
+  const conflict = state.ecosystem.open_conflicts[0];
+  if (!conflict) return;
+  try {
+    const result = await api("/api/patient-agent/conflicts/resolve", {
+      method: "POST",
+      body: JSON.stringify({ patient_id: "demo-patient", conflict_id: conflict.id }),
+    });
+    document.querySelector("#network-result").innerHTML = `<strong>Conflict resolved privately</strong> · ${escapeHtml(result.message)}`;
+    await load();
+  } catch (error) { toast(error.message); }
 }
 
 function renderEvidence() {
@@ -190,6 +243,8 @@ function toast(message, duration = 3000) {
 }
 
 document.querySelector("#refresh").onclick = load;
+document.querySelector("#route-request").onclick = routeNetworkRequest;
+document.querySelector("#resolve-conflict").onclick = resolveNetworkConflict;
 document.querySelector("#new-case").onclick = () => document.querySelector("#case-dialog").showModal();
 document.querySelector("#case-form").addEventListener("submit", async event => {
   event.preventDefault();

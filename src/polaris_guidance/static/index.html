@@ -37,6 +37,27 @@
       <div id="adapters" class="adapters"></div>
     </section>
 
+    <section class="network" aria-labelledby="network-title">
+      <div class="network-head">
+        <div>
+          <p class="eyebrow">PATIENT-OWNED CARE NETWORK</p>
+          <h2 id="network-title">One advocate across hospitals.<br><em>Only the minimum data moves.</em></h2>
+        </div>
+        <div class="privacy-boundary"><strong>Privacy boundary</strong><span id="privacy-boundary">Loading…</span></div>
+      </div>
+      <div id="network-hospitals" class="network-hospitals"></div>
+      <div class="network-console">
+        <div>
+          <label for="network-message">Test the patient agent</label>
+          <input id="network-message" value="Please check me in; I am waiting in the cafeteria." maxlength="1000">
+        </div>
+        <label>Hospital<select id="network-hospital"><option value="stmarys">St. Mary's</option><option value="riverside">Riverside</option></select></label>
+        <button id="route-request" class="primary">Route safely</button>
+        <button id="resolve-conflict" class="secondary">Resolve schedule conflict</button>
+      </div>
+      <div id="network-result" class="network-result">The patient agent checks emergencies, consent, and disclosure scope before routing.</div>
+    </section>
+
     <section class="workspace">
       <aside>
         <div class="section-title"><span>Live journeys</span><button id="refresh" title="Refresh">↻</button></div>

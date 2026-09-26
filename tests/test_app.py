@@ -39,6 +39,35 @@ class APITests(unittest.TestCase):
         hospitals = self.client.get("/api/hospitals").json()
         self.assertEqual({item["standard"] for item in hospitals}, {"FHIR R4", "HL7 v2"})
 
+    def test_ecosystem_endpoints_route_and_isolate_hospitals(self):
+        network = self.client.get("/api/ecosystem").json()
+        self.assertEqual(len(network["hospitals"]), 2)
+        response = self.client.post(
+            "/api/patient-agent/route",
+            json={
+                "patient_id": "api-patient",
+                "text": "Please check me in",
+                "hospital_id": "stmarys",
+                "consent_to_share": True,
+                "payload": {"appointment_id": "a1", "insurance": "must-not-pass"},
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["shared_fields"], ["appointment_id"])
+        self.assertEqual(body["stripped_fields"], ["insurance"])
+        sharing = self.client.get("/api/patient-agent/api-patient/sharing-log").json()
+        self.assertEqual(sharing[0]["hospital_id"], "stmarys")
+
+    def test_conflict_resolution_endpoint(self):
+        conflicts = self.client.get("/api/patient-agent/demo-patient/conflicts").json()
+        response = self.client.post(
+            "/api/patient-agent/conflicts/resolve",
+            json={"patient_id": "demo-patient", "conflict_id": conflicts[0]["id"]},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "resolved")
+
     def test_consent_is_required(self):
         response = self.client.post(
             "/api/cases",

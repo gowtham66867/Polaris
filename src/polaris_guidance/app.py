@@ -17,6 +17,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from .actions import execute_approved_action
 from .adapters import adapter_catalog
 from .domain import STAGES, Case, CaseStore
+from .ecosystem import CareNetwork
 from .engine import elapsed_minutes
 from .harness import GuidanceOrchestrator
 from .hermes_client import HermesClient
@@ -60,9 +61,38 @@ class BarrierResolution(BaseModel):
     resolution: str = Field(min_length=2, max_length=500)
 
 
+class PatientAgentRequest(BaseModel):
+    patient_id: str = Field(default="demo-patient", min_length=1, max_length=80)
+    text: str = Field(min_length=1, max_length=1000)
+    hospital_id: str | None = Field(default=None, max_length=80)
+    consent_to_share: bool = False
+    payload: dict[str, object] = Field(default_factory=dict)
+
+
+class ConflictResolution(BaseModel):
+    patient_id: str = Field(default="demo-patient", min_length=1, max_length=80)
+    conflict_id: str = Field(min_length=1, max_length=200)
+
+
+class ReadinessUpdate(BaseModel):
+    patient_id: str = Field(default="demo-patient", min_length=1, max_length=80)
+    zone: str = Field(min_length=1, max_length=40)
+    eta_minutes: int | None = Field(default=None, ge=0, le=240)
+
+
+class AvailabilityUpdate(BaseModel):
+    available: bool
+
+
+class SurgeUpdate(BaseModel):
+    department: str = Field(min_length=1, max_length=80)
+    active: bool
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.store = CaseStore(DB_PATH)
+    app.state.care_network = CareNetwork()
     if not app.state.store.list_cases():
         _seed_demo(app.state.store)
     yield
@@ -70,7 +100,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Polaris Guidance Agent",
-    version="0.2.0",
+    version="0.3.0",
     description="Patient-advocacy and hospital-operations coordination; not a medical device.",
     lifespan=lifespan,
 )
@@ -168,6 +198,111 @@ def evidence() -> dict[str, object]:
 @app.get("/api/hospitals")
 def hospitals() -> list[dict[str, object]]:
     return adapter_catalog()
+
+
+@app.get("/api/ecosystem")
+def ecosystem() -> dict[str, object]:
+    """Patient-owned cross-hospital context with hospital-scoped operational views."""
+    return cast(dict[str, object], app.state.care_network.snapshot())
+
+
+@app.get("/api/ecosystem/hospitals/{hospital_id}")
+def ecosystem_hospital(hospital_id: str) -> dict[str, object]:
+    try:
+        return cast(dict[str, object], app.state.care_network.hospital_view(hospital_id))
+    except KeyError:
+        raise HTTPException(404, "Hospital not found") from None
+
+
+@app.post("/api/patient-agent/route")
+def patient_agent_route(
+    body: PatientAgentRequest,
+    _principal: Principal = Depends(require_roles("patient", "nurse", "doctor")),
+) -> dict[str, object]:
+    try:
+        return cast(dict[str, object], app.state.care_network.route(**body.model_dump()))
+    except KeyError:
+        raise HTTPException(404, "Hospital not found") from None
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@app.get("/api/patient-agent/{patient_id}/conflicts")
+def patient_agent_conflicts(patient_id: str) -> list[dict[str, object]]:
+    return cast(list[dict[str, object]], app.state.care_network.conflicts(patient_id))
+
+
+@app.post("/api/patient-agent/conflicts/resolve")
+def resolve_patient_conflict(
+    body: ConflictResolution,
+    _principal: Principal = Depends(require_roles("patient", "nurse")),
+) -> dict[str, object]:
+    try:
+        return cast(
+            dict[str, object],
+            app.state.care_network.resolve_conflict(body.patient_id, body.conflict_id),
+        )
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@app.get("/api/patient-agent/{patient_id}/sharing-log")
+def patient_agent_sharing_log(patient_id: str) -> list[dict[str, object]]:
+    return cast(list[dict[str, object]], app.state.care_network.sharing_log(patient_id))
+
+
+@app.post("/api/ecosystem/hospitals/{hospital_id}/readiness")
+def update_readiness(
+    hospital_id: str,
+    body: ReadinessUpdate,
+    _principal: Principal = Depends(require_roles("patient", "nurse")),
+) -> dict[str, object]:
+    try:
+        return cast(
+            dict[str, object],
+            app.state.care_network.readiness(
+                body.patient_id, hospital_id, body.zone, body.eta_minutes
+            ),
+        )
+    except KeyError:
+        raise HTTPException(404, "Hospital not found") from None
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@app.post("/api/ecosystem/hospitals/{hospital_id}/specialists/{specialist}")
+def update_specialist(
+    hospital_id: str,
+    specialist: str,
+    body: AvailabilityUpdate,
+    _principal: Principal = Depends(require_roles("nurse", "doctor", "admin")),
+) -> dict[str, object]:
+    try:
+        return cast(
+            dict[str, object],
+            app.state.care_network.set_specialist_availability(
+                hospital_id, specialist, body.available
+            ),
+        )
+    except KeyError:
+        raise HTTPException(404, "Hospital not found") from None
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@app.post("/api/ecosystem/hospitals/{hospital_id}/surge")
+def update_surge(
+    hospital_id: str,
+    body: SurgeUpdate,
+    _principal: Principal = Depends(require_roles("nurse", "doctor", "admin")),
+) -> dict[str, object]:
+    try:
+        return cast(
+            dict[str, object],
+            app.state.care_network.set_surge(hospital_id, body.department, body.active),
+        )
+    except KeyError:
+        raise HTTPException(404, "Hospital not found") from None
 
 
 @app.get("/api/cases")
