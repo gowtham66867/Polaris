@@ -11,6 +11,9 @@ with a Claude model selected through Hermes.
 
 **Live demo:** [Polaris on Google Cloud Run](https://polaris-guidance-mb3wwhqg6q-el.a.run.app)
 
+**Independent AWS demo:**
+[Polaris on Amazon EC2](http://ec2-65-0-108-126.ap-south-1.compute.amazonaws.com)
+
 The public demo uses synthetic data, ephemeral SQLite storage, and the deterministic safety
 engine. It does not contain cloud-hosted Hermes/Claude credentials and is not approved for PHI.
 
