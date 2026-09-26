@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Polaris Guidance</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="mark">✦</span><span>POLARIS</span></div>
+    <div class="role-pill">Hospital operations · Demo mode</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">PATIENT JOURNEY CONTROL</p>
+        <h1>Every patient knows<br><em>what happens next.</em></h1>
+        <p class="lede">A shared guidance layer that surfaces delays, prepares handoffs, and keeps patients and hospital teams aligned.</p>
+      </div>
+      <div class="safety-card">
+        <span class="pulse"></span>
+        <div><strong>Human-led by design</strong><p>Polaris coordinates workflows. Clinicians retain every clinical decision.</p></div>
+      </div>
+    </section>
+
+    <section id="metrics" class="metrics" aria-label="Operational metrics"></section>
+
+    <section class="workspace">
+      <aside>
+        <div class="section-title"><span>Live journeys</span><button id="refresh" title="Refresh">↻</button></div>
+        <div id="case-list" class="case-list"></div>
+        <button id="new-case" class="secondary full">+ Add synthetic case</button>
+      </aside>
+
+      <article id="case-detail" class="case-detail">
+        <div class="empty">Select a patient journey.</div>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="case-dialog">
+    <form id="case-form" method="dialog">
+      <div class="dialog-head"><h2>Open a patient journey</h2><button value="cancel" class="icon">×</button></div>
+      <p>Use synthetic information only in this hackathon build.</p>
+      <label>Display name<input name="display_name" required maxlength="80" placeholder="e.g. Sam (demo)"></label>
+      <label>Reason for visit<textarea name="reason" required maxlength="500" placeholder="Non-diagnostic description"></textarea></label>
+      <div class="two-col">
+        <label>Urgency<select name="urgency"><option value="routine">Routine</option><option value="urgent">Urgent</option></select></label>
+        <label>Language<input name="language" value="English"></label>
+      </div>
+      <label class="consent"><input type="checkbox" name="consent" required> Patient consented to workflow coordination</label>
+      <button class="primary" value="default">Create journey</button>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
+

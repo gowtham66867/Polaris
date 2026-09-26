@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polaris-guidance-agent"
+version = "0.1.0"
+description = "Hospital-agnostic patient guidance and care-operations coordination MVP"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "pydantic>=2.11,<3",
+  "uvicorn>=0.35,<1",
+]
+
+[project.optional-dependencies]
+test = [
+  "coverage>=7.10,<8",
+  "mypy>=1.17,<2",
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polaris_guidance"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/polaris_guidance/app.py" = ["B008"]
+"src/polaris_guidance/security.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["polaris_guidance"]
+mypy_path = "src"
+
+[tool.coverage.run]
+branch = true
+source = ["polaris_guidance"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
