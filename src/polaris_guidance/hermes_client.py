@@ -22,11 +22,19 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class HermesClient:
-    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 45):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout: float = 45,
+        provider: str = "hermes",
+    ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
+        self.provider = provider
 
     async def complete_json(
         self,
@@ -38,7 +46,7 @@ class HermesClient:
     ) -> T:
         if not self.api_key:
             raise RuntimeError("Hermes API key is not configured.")
-        request_payload = {
+        request_payload: dict[str, Any] = {
             "model": self.model,
             "instructions": (
                 f"{SYSTEM_INSTRUCTIONS}\n\nROLE: {role.value}\n{instructions}\n\n"
@@ -51,8 +59,12 @@ class HermesClient:
                 }
             ),
             "store": False,
-            "model_options": {"reasoning": {"enabled": False}},
         }
+        if self.provider == "openai":
+            # OpenAI Responses API: JSON mode, no Hermes-specific options.
+            request_payload["text"] = {"format": {"type": "json_object"}}
+        else:
+            request_payload["model_options"] = {"reasoning": {"enabled": False}}
         headers = {"Authorization": f"Bearer {self.api_key}"}
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(

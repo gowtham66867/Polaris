@@ -124,9 +124,11 @@ aside { padding: 20px; background: #fbfcf9; border-right: 1px solid var(--line);
 .timeline-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
 .timeline-head h3 { margin: 0; }
 .timeline { margin-top: 12px; border-top: 1px solid var(--line); }
-.event { display: grid; grid-template-columns: 80px 1fr auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+.event { display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--line); }
 .event .actor { color: var(--green); font-size: .72rem; font-weight: 800; text-transform: uppercase; }
 .event small { color: var(--muted); }
+.event.executed { background: color-mix(in srgb, var(--green) 8%, transparent); border-left: 3px solid var(--green); padding-left: 10px; }
+.event.executed span:nth-child(2) { font-weight: 600; }
 dialog { width: min(520px, calc(100vw - 30px)); padding: 0; border: 0; border-radius: 20px; box-shadow: 0 30px 90px #16291c4d; }
 dialog::backdrop { background: #17231d99; backdrop-filter: blur(3px); }
 form { padding: 26px; }

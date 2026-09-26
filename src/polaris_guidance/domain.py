@@ -28,6 +28,7 @@ ALLOWED_EVENT_TYPES = {
     "guidance_proposed",
     "guidance_approved",
     "guidance_dismissed",
+    "action_executed",
 }
 
 

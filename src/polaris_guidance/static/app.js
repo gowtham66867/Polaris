@@ -19,9 +19,12 @@ async function load() {
   state.cases = cases;
   state.evidence = evidence;
   state.hospitals = hospitals;
-  document.querySelector("#model-status").textContent = health.llm_connected
-    ? `Claude Opus 5 · Hermes connected`
-    : `Claude Opus 5 target · Safe fallback active`;
+  document.querySelector("#model-status").textContent = !health.llm_connected
+    ? `Live agents offline · Safe fallback active`
+    : health.llm_provider === "openai"
+      ? `Live agents · OpenAI ${health.llm_target}`
+      : `Live agents · Hermes + ${health.llm_target}`;
+  state.health = health;
   renderMetrics(metrics);
   renderEvidence();
   renderCases();
@@ -43,14 +46,14 @@ function renderMetrics(m) {
   document.querySelector("#metrics").innerHTML = [
     ["Active journeys", m.active_cases],
     ["Average elapsed", `${m.average_wait_minutes} min`],
-    ["Needs attention", m.over_target],
+    ["Needs attention", m.needs_attention],
   ].map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join("");
 }
 
 function renderCases() {
   document.querySelector("#case-list").innerHTML = state.cases.map(item => `
     <button class="case-item ${state.selected === item.id ? "active" : ""}" data-id="${item.id}">
-      <div class="case-row"><strong>${escapeHtml(item.display_name)}</strong><span class="tag ${item.over_target ? "late" : ""}">${item.over_target ? "attention" : nice(item.stage)}</span></div>
+      <div class="case-row"><strong>${escapeHtml(item.display_name)}</strong><span class="tag ${item.needs_attention ? "late" : ""}">${item.needs_attention ? `attention · ${nice(item.stage)}` : nice(item.stage)}</span></div>
       <small>${item.elapsed_minutes} min · ${escapeHtml(item.reason.slice(0, 42))}${item.reason.length > 42 ? "…" : ""}</small>
     </button>`).join("");
   document.querySelectorAll(".case-item").forEach(button => button.onclick = () => selectCase(button.dataset.id));
@@ -88,7 +91,7 @@ function renderDetail() {
       <div class="graph-node ${node.state}"><span>${escapeHtml(node.label)}</span><small>${escapeHtml(node.owner)}</small><b>${node.expected_minutes}m</b></div>`).join("")}</div>
     ${injectionNeutralized ? `<div class="safety-alert"><strong>Adversarial case</strong><span>Timeline instructions are treated as untrusted data. The policy trace must show prompt_injection_neutralized.</span></div>` : ""}
     <div class="guide-card">
-      <div><h3>Prepare the next best step</h3><p>Hermes + Claude draft a coordination action. A hospital team member decides.</p></div>
+      <div><h3>Prepare the next best step</h3><p>Three agents (patient advocate → operations coordinator → safety reviewer) draft one coordination action. A hospital team member approves, and Polaris executes it.</p></div>
       <button id="guide">Ask guidance agent</button>
     </div>
     <div id="guidance"></div>
@@ -98,7 +101,7 @@ function renderDetail() {
       <button id="barrier" class="secondary">Report barrier</button>
     </div></div>
     <div class="timeline">${events.map(event => `
-      <div class="event"><span class="actor">${escapeHtml(event.actor)}</span><span>${escapeHtml(event.message)}</span><small>${time(event.created_at)}</small></div>`).join("")}</div>`;
+      <div class="event ${event.event_type === "action_executed" ? "executed" : ""}"><span class="actor">${escapeHtml(event.event_type === "action_executed" ? "agent action" : event.actor)}</span><span>${escapeHtml(event.message)}</span><small>${time(event.created_at)}</small></div>`).join("")}</div>`;
   document.querySelector("#guide").onclick = requestGuidance;
   document.querySelector("#barrier").onclick = reportBarrier;
   if (hasBarrier) document.querySelector("#resolve").onclick = resolveBarrier;
@@ -128,7 +131,7 @@ async function requestGuidance() {
         <div class="policy-checks">${result.policy_checks.map(check => `<span>✓ ${escapeHtml(nice(check))}</span>`).join("")}</div>
         <div class="agent-trace">${trace}</div>
         ${result.warning ? `<p><small>${escapeHtml(result.warning)}</small></p>` : ""}
-        <div class="decision-row"><button class="primary" id="approve">Approve</button><button class="secondary" id="dismiss">Dismiss</button></div>
+        <div class="decision-row"><button class="primary" id="approve">Approve &amp; execute</button><button class="secondary" id="dismiss">Dismiss</button></div>
       </div>`;
     document.querySelector("#approve").onclick = () => decide(result.event_id, true);
     document.querySelector("#dismiss").onclick = () => decide(result.event_id, false);
@@ -137,12 +140,14 @@ async function requestGuidance() {
 }
 
 async function decide(eventId, approved) {
-  await api(`/api/cases/${state.selected}/decision`, {
-    method: "POST",
-    body: JSON.stringify({ guidance_event_id: eventId, actor: "nurse", approved }),
-  });
-  toast(approved ? "Guidance approved and recorded." : "Guidance dismissed and recorded.");
-  await selectCase(state.selected);
+  try {
+    const result = await api(`/api/cases/${state.selected}/decision`, {
+      method: "POST",
+      body: JSON.stringify({ guidance_event_id: eventId, actor: "nurse", approved }),
+    });
+    toast(approved && result.action ? `Executed: ${result.action.message}` : "Guidance dismissed and recorded.", 5000);
+    await load();
+  } catch (error) { toast(error.message); }
 }
 
 async function reportBarrier() {
@@ -177,11 +182,11 @@ async function advanceStage() {
   await load();
 }
 
-function toast(message) {
+function toast(message, duration = 3000) {
   const element = document.querySelector("#toast");
   element.textContent = message;
   element.classList.add("show");
-  setTimeout(() => element.classList.remove("show"), 3000);
+  setTimeout(() => element.classList.remove("show"), duration);
 }
 
 document.querySelector("#refresh").onclick = load;
@@ -192,7 +197,7 @@ document.querySelector("#case-form").addEventListener("submit", async event => {
   try {
     const created = await api("/api/cases", { method: "POST", body: JSON.stringify({
       display_name: data.get("display_name"), reason: data.get("reason"), urgency: data.get("urgency"),
-      consent_to_coordinate: data.get("consent") === "on", language: data.get("language"), target_minutes: 45,
+      consent_to_coordinate: data.get("consent") === "on", language: data.get("language"), target_minutes: 120,
     }) });
     document.querySelector("#case-dialog").close();
     event.currentTarget.reset();

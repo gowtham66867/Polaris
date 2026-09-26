@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.base import RequestResponseEndpoint
 
+from .actions import execute_approved_action
 from .adapters import adapter_catalog
 from .domain import STAGES, Case, CaseStore
 from .engine import elapsed_minutes
@@ -33,7 +34,7 @@ class CaseCreate(BaseModel):
     urgency: str = Field(default="routine", pattern="^(routine|urgent)$")
     consent_to_coordinate: bool
     language: str = Field(default="English", max_length=40)
-    target_minutes: int = Field(default=45, ge=5, le=360)
+    target_minutes: int = Field(default=120, ge=5, le=360)
 
 
 class EventCreate(BaseModel):
@@ -92,15 +93,44 @@ def dashboard() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+def llm_settings() -> dict[str, str]:
+    """Resolve which model gateway the agents use.
+
+    Hermes (local gateway) is preferred when configured; otherwise a direct OpenAI key
+    (the hackathon-issued OPENAI_API_KEY) powers the same multi-agent pipeline.
+    """
+    hermes_key = os.environ.get("POLARIS_HERMES_API_KEY", "")
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    provider = os.environ.get("POLARIS_LLM_PROVIDER", "").lower()
+    if provider not in {"hermes", "openai"}:
+        provider = "hermes" if hermes_key or not openai_key else "openai"
+    if provider == "openai":
+        return {
+            "provider": "openai",
+            "api_key": openai_key,
+            "base_url": os.environ.get("POLARIS_OPENAI_API_URL", "https://api.openai.com/v1"),
+            "model": os.environ.get("POLARIS_OPENAI_MODEL", "gpt-4.1-mini"),
+        }
+    return {
+        "provider": "hermes",
+        "api_key": hermes_key,
+        "base_url": os.environ.get("POLARIS_HERMES_API_URL", "http://127.0.0.1:8642/v1"),
+        "model": os.environ.get("POLARIS_HERMES_MODEL", "anthropic/claude-opus-5"),
+    }
+
+
 @app.get("/api/health")
 def health() -> dict[str, object]:
-    key_configured = bool(os.environ.get("POLARIS_HERMES_API_KEY", ""))
+    settings = llm_settings()
+    key_configured = bool(settings["api_key"])
+    mode = "hermes+claude" if settings["provider"] == "hermes" else "openai"
     return {
         "status": "ok",
         "service": "polaris-guidance",
-        "llm_target": os.environ.get("POLARIS_HERMES_MODEL", "anthropic/claude-opus-5"),
+        "llm_provider": settings["provider"],
+        "llm_target": settings["model"],
         "llm_connected": key_configured,
-        "execution_mode": "hermes+claude" if key_configured else "deterministic-fallback",
+        "execution_mode": mode if key_configured else "deterministic-fallback",
     }
 
 
@@ -214,20 +244,21 @@ async def guide(
     except KeyError:
         raise HTTPException(404, "Case not found") from None
 
-    api_key = os.environ.get("POLARIS_HERMES_API_KEY", "")
+    settings = llm_settings()
     client = (
         HermesClient(
-            base_url=os.environ.get("POLARIS_HERMES_API_URL", "http://127.0.0.1:8642/v1"),
-            api_key=api_key,
-            model=os.environ.get("POLARIS_HERMES_MODEL", "anthropic/claude-opus-5"),
+            base_url=settings["base_url"],
+            api_key=settings["api_key"],
+            model=settings["model"],
+            provider=settings["provider"],
         )
-        if api_key
+        if settings["api_key"]
         else None
     )
     run = await GuidanceOrchestrator(client).run(case, events)
     guidance = run.guidance
     warning = (
-        "Hermes unavailable; showing safety-checked workflow guidance."
+        "Live agents unavailable; showing safety-checked workflow guidance."
         if run.status == "fallback"
         else None
     )
@@ -259,7 +290,9 @@ def decide(
     event_type = "guidance_approved" if body.approved else "guidance_dismissed"
     label = "approved" if body.approved else "dismissed"
     try:
-        app.state.store.require_guidance(case_id, body.guidance_event_id)
+        proposal = app.state.store.require_guidance(case_id, body.guidance_event_id)
+        case = app.state.store.require_case(case_id)
+        events = app.state.store.list_events(case_id)
         event = app.state.store.add_event(
             case_id,
             body.actor,
@@ -267,31 +300,48 @@ def decide(
             f"Guidance {body.guidance_event_id} {label} by {body.actor}.",
             {"guidance_event_id": body.guidance_event_id},
         )
+        action = None
+        if body.approved:
+            run = cast(dict[str, object], proposal.metadata.get("run") or {})
+            guidance = cast(dict[str, object], run.get("guidance") or {})
+            action = execute_approved_action(
+                app.state.store,
+                case,
+                events,
+                guidance,
+                body.actor,
+                body.guidance_event_id,
+            ).to_dict()
     except (KeyError, ValueError) as error:
         raise HTTPException(400, str(error)) from None
-    return asdict(event)
+    return {**asdict(event), "action": action}
 
 
 @app.get("/api/metrics")
 def metrics() -> dict[str, object]:
     cases = app.state.store.list_cases()
-    waits = [elapsed_minutes(case) for case in cases]
+    views = [_case_view(case) for case in cases]
+    waits = [cast(int, view["elapsed_minutes"]) for view in views]
     by_stage = {stage: sum(case.stage == stage for case in cases) for stage in STAGES}
     return {
         "active_cases": len(cases),
         "average_wait_minutes": round(sum(waits) / len(waits), 1) if waits else 0,
-        "over_target": sum(
-            wait > case.target_minutes for wait, case in zip(waits, cases, strict=True)
-        ),
+        "over_target": sum(bool(view["over_target"]) for view in views),
+        "needs_attention": sum(bool(view["needs_attention"]) for view in views),
         "by_stage": by_stage,
     }
 
 
 def _case_view(case: Case) -> dict[str, object]:
     view = cast(dict[str, object], asdict(case))
+    events = app.state.store.list_events(case.id)
+    forecast = cast(dict[str, object], coordination_graph(case, events)["forecast"])
     elapsed = elapsed_minutes(case)
     view["elapsed_minutes"] = elapsed
     view["over_target"] = elapsed > case.target_minutes
+    view["forecast_status"] = forecast["status"]
+    view["has_open_barrier"] = bool(open_barriers(events))
+    view["needs_attention"] = forecast["status"] != "on_track" or bool(view["has_open_barrier"])
     return view
 
 
@@ -302,7 +352,7 @@ def _seed_demo(store: CaseStore) -> None:
         urgency="routine",
         consent_to_coordinate=True,
         language="English",
-        target_minutes=45,
+        target_minutes=90,
     )
     store.update_stage(first.id, "registration", "admin")
     store.update_stage(first.id, "triage", "nurse")
@@ -314,7 +364,7 @@ def _seed_demo(store: CaseStore) -> None:
         urgency="routine",
         consent_to_coordinate=True,
         language="Tamil",
-        target_minutes=30,
+        target_minutes=45,
     )
     store.update_stage(second.id, "registration", "admin")
     store.update_stage(second.id, "triage", "nurse")
@@ -327,7 +377,7 @@ def _seed_demo(store: CaseStore) -> None:
         urgency="routine",
         consent_to_coordinate=True,
         language="English",
-        target_minutes=45,
+        target_minutes=120,
     )
     store.update_stage(third.id, "registration", "admin")
     store.add_event(

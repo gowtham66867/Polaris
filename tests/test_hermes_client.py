@@ -114,6 +114,18 @@ class HermesClientTests(unittest.IsolatedAsyncioTestCase):
             {"reasoning": {"enabled": False}},
         )
 
+    async def test_openai_provider_uses_json_mode_without_hermes_options(self):
+        client = HermesClient("https://api.openai.com/v1", "key", "gpt-4.1-mini", provider="openai")
+        with patch("polaris_guidance.hermes_client.httpx.AsyncClient", FakeAsyncClient):
+            await client.complete_json(
+                role=AgentRole.PATIENT_ADVOCATE,
+                instructions="Summarize",
+                payload={"case": "demo"},
+                output_type=PatientBrief,
+            )
+        self.assertNotIn("model_options", FakeAsyncClient.last_payload)
+        self.assertEqual(FakeAsyncClient.last_payload["text"], {"format": {"type": "json_object"}})
+
 
 if __name__ == "__main__":
     unittest.main()
