@@ -25,8 +25,16 @@ class APITests(unittest.TestCase):
     def test_health_and_metrics(self):
         self.assertEqual(self.client.get("/api/health").json()["status"], "ok")
         metrics = self.client.get("/api/metrics").json()
-        self.assertEqual(metrics["active_cases"], 2)
+        self.assertEqual(metrics["active_cases"], 3)
         self.assertIn("triage", metrics["by_stage"])
+
+    def test_moat_evidence_and_adapter_catalog_are_exposed(self):
+        evidence = self.client.get("/api/evidence").json()
+        self.assertEqual(evidence["evidence_type"], "synthetic_counterfactual_simulation")
+        self.assertEqual(evidence["hospital_adapters"], 2)
+        self.assertGreater(evidence["metrics"]["simulated_minutes_saved"], 0)
+        hospitals = self.client.get("/api/hospitals").json()
+        self.assertEqual({item["standard"] for item in hospitals}, {"FHIR R4", "HL7 v2"})
 
     def test_consent_is_required(self):
         response = self.client.post(
@@ -59,6 +67,9 @@ class APITests(unittest.TestCase):
             },
         )
         self.assertEqual(event.status_code, 201)
+        graph = self.client.get(f"/api/cases/{case_id}/graph").json()
+        self.assertEqual(graph["open_barriers"][0]["message"], "Transport pending")
+        self.assertEqual(graph["nodes"][0]["id"], "arrival")
 
         with patch.dict("os.environ", {"POLARIS_HERMES_API_KEY": ""}):
             result = self.client.post(f"/api/cases/{case_id}/guide")
@@ -86,6 +97,18 @@ class APITests(unittest.TestCase):
             },
         )
         self.assertEqual(duplicate.status_code, 400)
+
+        resolved = self.client.post(
+            f"/api/cases/{case_id}/barriers/resolve",
+            json={"actor": "nurse", "resolution": "Transport confirmed"},
+        )
+        self.assertEqual(resolved.status_code, 200)
+        self.assertEqual(self.client.get(f"/api/cases/{case_id}/graph").json()["open_barriers"], [])
+        no_barrier = self.client.post(
+            f"/api/cases/{case_id}/barriers/resolve",
+            json={"actor": "nurse", "resolution": "Again"},
+        )
+        self.assertEqual(no_barrier.status_code, 400)
 
     def test_security_headers_and_request_id(self):
         response = self.client.get("/api/health", headers={"X-Request-ID": "trace-123"})

@@ -1,4 +1,4 @@
-const state = { cases: [], selected: null, detail: null };
+const state = { cases: [], selected: null, detail: null, graph: null, evidence: null, hospitals: [] };
 const stages = ["arrival", "registration", "triage", "clinical_review", "diagnostics", "treatment", "discharge"];
 
 const api = async (path, options = {}) => {
@@ -13,11 +13,27 @@ const nice = value => value.replaceAll("_", " ");
 const time = value => new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 async function load() {
-  const [cases, metrics] = await Promise.all([api("/api/cases"), api("/api/metrics")]);
+  const [cases, metrics, evidence, hospitals] = await Promise.all([
+    api("/api/cases"), api("/api/metrics"), api("/api/evidence"), api("/api/hospitals"),
+  ]);
   state.cases = cases;
+  state.evidence = evidence;
+  state.hospitals = hospitals;
   renderMetrics(metrics);
+  renderEvidence();
   renderCases();
   if (state.selected) await selectCase(state.selected);
+}
+
+function renderEvidence() {
+  const m = state.evidence.metrics;
+  document.querySelector("#evidence").innerHTML = `
+    <div class="proof-stat"><span>Manual baseline</span><strong>${m.median_time_to_named_owner_baseline_minutes} min</strong><small>median time to named owner</small></div>
+    <div class="proof-arrow">→</div>
+    <div class="proof-stat highlight"><span>With Polaris</span><strong>${m.median_time_to_named_owner_polaris_minutes} min</strong><small>${m.simulated_minutes_saved} simulated minutes saved</small></div>
+    <div class="proof-stat"><span>Safety suite</span><strong>${m.unsafe_action_escapes_in_safety_suite}/${m.safety_scenarios}</strong><small>unsafe action escapes</small></div>`;
+  document.querySelector("#adapters").innerHTML = state.hospitals.map(hospital => `
+    <div class="adapter"><span class="adapter-dot"></span><div><strong>${escapeHtml(hospital.hospital)}</strong><small>${escapeHtml(hospital.standard)} · ${escapeHtml(hospital.mode)}</small></div></div>`).join("");
 }
 
 function renderMetrics(m) {
@@ -39,7 +55,9 @@ function renderCases() {
 
 async function selectCase(id) {
   state.selected = id;
-  state.detail = await api(`/api/cases/${id}`);
+  [state.detail, state.graph] = await Promise.all([
+    api(`/api/cases/${id}`), api(`/api/cases/${id}/graph`),
+  ]);
   renderCases();
   renderDetail();
 }
@@ -48,22 +66,40 @@ function renderDetail() {
   const item = state.detail.case;
   const current = stages.indexOf(item.stage);
   const events = [...state.detail.events].reverse();
+  const graph = state.graph;
+  const hasBarrier = graph.open_barriers.length > 0;
+  const injectionNeutralized = state.detail.events.some(event =>
+    event.metadata && event.metadata.synthetic_adversarial_test
+  );
   document.querySelector("#case-detail").innerHTML = `
     <div class="detail-head">
       <div><span class="case-id">${item.id}</span><h2>${escapeHtml(item.display_name)}</h2><p>${escapeHtml(item.reason)}</p></div>
       <span class="tag ${item.over_target ? "late" : ""}">${item.elapsed_minutes} / ${item.target_minutes} min</span>
     </div>
-    <div class="stages">${stages.map((stage, i) => `<div class="stage ${i <= current ? "done" : ""}">${nice(stage)}</div>`).join("")}</div>
+    <div class="forecast ${graph.forecast.status}">
+      <div><span>Journey forecast</span><strong>${nice(graph.forecast.status)}</strong></div>
+      <div><span>Projected total</span><strong>${graph.forecast.projected_total_minutes} min</strong></div>
+      <div><span>Current owner</span><strong>${escapeHtml(graph.forecast.next_owner)}</strong></div>
+    </div>
+    <div class="journey-graph">${graph.nodes.map(node => `
+      <div class="graph-node ${node.state}"><span>${escapeHtml(node.label)}</span><small>${escapeHtml(node.owner)}</small><b>${node.expected_minutes}m</b></div>`).join("")}</div>
+    ${injectionNeutralized ? `<div class="safety-alert"><strong>Adversarial case</strong><span>Timeline instructions are treated as untrusted data. The policy trace must show prompt_injection_neutralized.</span></div>` : ""}
     <div class="guide-card">
       <div><h3>Prepare the next best step</h3><p>Hermes + Claude draft a coordination action. A hospital team member decides.</p></div>
       <button id="guide">Ask guidance agent</button>
     </div>
     <div id="guidance"></div>
-    <div class="timeline-head"><h3>Shared timeline</h3><button id="barrier" class="secondary">Report barrier</button></div>
+    <div class="timeline-head"><h3>Shared timeline</h3><div class="timeline-actions">
+      ${hasBarrier ? `<button id="resolve" class="primary">Resolve barrier</button>` : ""}
+      ${current < stages.length - 1 ? `<button id="advance" class="secondary">Complete handoff</button>` : ""}
+      <button id="barrier" class="secondary">Report barrier</button>
+    </div></div>
     <div class="timeline">${events.map(event => `
       <div class="event"><span class="actor">${escapeHtml(event.actor)}</span><span>${escapeHtml(event.message)}</span><small>${time(event.created_at)}</small></div>`).join("")}</div>`;
   document.querySelector("#guide").onclick = requestGuidance;
   document.querySelector("#barrier").onclick = reportBarrier;
+  if (hasBarrier) document.querySelector("#resolve").onclick = resolveBarrier;
+  if (current < stages.length - 1) document.querySelector("#advance").onclick = advanceStage;
 }
 
 async function requestGuidance() {
@@ -86,6 +122,7 @@ async function requestGuidance() {
         <p><strong>Suggested action:</strong> ${escapeHtml(g.next_action)}</p>
         <p><strong>Owner:</strong> ${escapeHtml(g.owner)} · <strong>Why:</strong> ${escapeHtml(g.rationale)}</p>
         <div class="run-meta"><strong>${escapeHtml(result.run_status)}</strong> · ${escapeHtml(result.run_id)} · ${result.policy_checks.length} policy checks</div>
+        <div class="policy-checks">${result.policy_checks.map(check => `<span>✓ ${escapeHtml(nice(check))}</span>`).join("")}</div>
         <div class="agent-trace">${trace}</div>
         ${result.warning ? `<p><small>${escapeHtml(result.warning)}</small></p>` : ""}
         <div class="decision-row"><button class="primary" id="approve">Approve</button><button class="secondary" id="dismiss">Dismiss</button></div>
@@ -112,6 +149,28 @@ async function reportBarrier() {
     method: "POST",
     body: JSON.stringify({ actor: "nurse", event_type: "barrier_reported", message }),
   });
+  await load();
+}
+
+async function resolveBarrier() {
+  const resolution = prompt("How was the barrier resolved? Use synthetic information only.");
+  if (!resolution) return;
+  await api(`/api/cases/${state.selected}/barriers/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ actor: "nurse", resolution }),
+  });
+  toast("Barrier resolved. The journey graph has been updated.");
+  await load();
+}
+
+async function advanceStage() {
+  const current = stages.indexOf(state.detail.case.stage);
+  if (current >= stages.length - 1) return;
+  await api(`/api/cases/${state.selected}/stage`, {
+    method: "POST",
+    body: JSON.stringify({ actor: "nurse", stage: stages[current + 1] }),
+  });
+  toast("Handoff completed and recorded.");
   await load();
 }
 

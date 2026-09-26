@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import httpx
 
-from polaris_guidance.adapters import DemoHospitalAdapter, ReadOnlyFHIRAdapter
+from polaris_guidance.adapters import DemoHL7Adapter, DemoHospitalAdapter, ReadOnlyFHIRAdapter
 
 
 class AdapterTests(unittest.IsolatedAsyncioTestCase):
@@ -11,6 +11,11 @@ class AdapterTests(unittest.IsolatedAsyncioTestCase):
         context = await DemoHospitalAdapter().encounter_context("enc-1")
         self.assertEqual(context.encounter_id, "enc-1")
         self.assertEqual(context.source, "synthetic")
+
+    async def test_hl7_adapter_maps_to_canonical_event(self):
+        context = await DemoHL7Adapter().encounter_context("enc-2")
+        self.assertEqual(context.source, "synthetic-hl7-v2")
+        self.assertEqual(context.tasks[0]["canonical_type"], "arrival")
 
     def test_fhir_adapter_requires_tls(self):
         with self.assertRaisesRegex(ValueError, "HTTPS"):

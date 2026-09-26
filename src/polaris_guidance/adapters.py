@@ -33,6 +33,43 @@ class DemoHospitalAdapter(HospitalAdapter):
         )
 
 
+class DemoHL7Adapter(HospitalAdapter):
+    """Synthetic HL7 v2 mapping used to prove the canonical model is vendor-neutral."""
+
+    async def encounter_context(self, encounter_id: str) -> HospitalContext:
+        return HospitalContext(
+            hospital_id="lakeside-community",
+            encounter_id=encounter_id,
+            tasks=[
+                {
+                    "source_message": "ADT^A01",
+                    "canonical_type": "arrival",
+                    "status": "complete",
+                }
+            ],
+            source="synthetic-hl7-v2",
+        )
+
+
+def adapter_catalog() -> list[dict[str, object]]:
+    return [
+        {
+            "id": "northstar-fhir",
+            "hospital": "Northstar Medical Center",
+            "standard": "FHIR R4",
+            "mode": "read-only synthetic",
+            "canonical_events": ["Encounter", "Task", "ServiceRequest", "Communication"],
+        },
+        {
+            "id": "lakeside-hl7",
+            "hospital": "Lakeside Community Hospital",
+            "standard": "HL7 v2",
+            "mode": "read-only synthetic",
+            "canonical_events": ["ADT", "ORM", "ORU"],
+        },
+    ]
+
+
 class ReadOnlyFHIRAdapter(HospitalAdapter):
     """Minimal FHIR R4 adapter. It deliberately exposes no write operation."""
 

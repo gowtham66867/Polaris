@@ -44,6 +44,14 @@ Hospital teams ───┘                                      │
 - Required staff approval/dismissal and an immutable decision event
 - Duplicate-decision prevention, optional strict API-key RBAC, security headers, and request IDs
 - Read-only FHIR R4 adapter boundary plus a synthetic hospital adapter
+- Canonical ownership/dependency graph with stage owners, barriers, expected durations, and
+  journey-risk forecasting
+- Two portability demonstrations: Northstar Medical Center over FHIR R4 and Lakeside Community
+  Hospital over HL7 v2, both mapped into the same journey model
+- Closed-loop barrier resolution and handoff completion
+- A visible prompt-injection challenge that proves timeline content cannot redefine the agent
+- A versioned 12-scenario counterfactual simulation comparing manual routing with Polaris;
+  results are explicitly labeled synthetic rather than presented as clinical evidence
 - Local SQLite persistence and a responsive demo dashboard
 
 ## Run the demo
@@ -122,6 +130,6 @@ make quality
 
 The quality gate runs Ruff lint/format checks, strict mypy, branch-aware coverage with an 80%
 minimum, the complete test suite, and adversarial safety evaluations. The current verified
-baseline is 36 tests, 95% coverage, and 8/8 safety scenarios.
+baseline is 42 tests, 95% coverage, and 8/8 safety scenarios.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Security](SECURITY.md) for system boundaries.
