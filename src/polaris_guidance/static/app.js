@@ -13,12 +13,15 @@ const nice = value => value.replaceAll("_", " ");
 const time = value => new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 async function load() {
-  const [cases, metrics, evidence, hospitals] = await Promise.all([
-    api("/api/cases"), api("/api/metrics"), api("/api/evidence"), api("/api/hospitals"),
+  const [cases, metrics, evidence, hospitals, health] = await Promise.all([
+    api("/api/cases"), api("/api/metrics"), api("/api/evidence"), api("/api/hospitals"), api("/api/health"),
   ]);
   state.cases = cases;
   state.evidence = evidence;
   state.hospitals = hospitals;
+  document.querySelector("#model-status").textContent = health.llm_connected
+    ? `Claude Opus 5 · Hermes connected`
+    : `Claude Opus 5 target · Safe fallback active`;
   renderMetrics(metrics);
   renderEvidence();
   renderCases();

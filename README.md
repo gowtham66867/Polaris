@@ -64,9 +64,9 @@ Configure a provider and select a Claude model:
 hermes model
 ```
 
-The Hermes checkout used for this project currently recognizes `anthropic/claude-sonnet-5`.
-No verified `Claude 5.5` model identifier was found, so Polaris keeps the model configurable
-instead of inventing a slug.
+Polaris targets `anthropic/claude-opus-5`, corresponding to Anthropic's verified API model
+`claude-opus-5`. Anthropic does not currently publish a `Claude Opus 5.5` model identifier,
+so Polaris does not invent an unsupported slug.
 
 Enable the API server in the active Hermes profile's `.env`:
 

@@ -23,7 +23,10 @@ class APITests(unittest.TestCase):
         self.tempdir.cleanup()
 
     def test_health_and_metrics(self):
-        self.assertEqual(self.client.get("/api/health").json()["status"], "ok")
+        health = self.client.get("/api/health").json()
+        self.assertEqual(health["status"], "ok")
+        self.assertEqual(health["llm_target"], "anthropic/claude-opus-5")
+        self.assertFalse(health["llm_connected"])
         metrics = self.client.get("/api/metrics").json()
         self.assertEqual(metrics["active_cases"], 3)
         self.assertIn("triage", metrics["by_stage"])

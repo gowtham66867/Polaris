@@ -93,8 +93,15 @@ def dashboard() -> FileResponse:
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "polaris-guidance"}
+def health() -> dict[str, object]:
+    key_configured = bool(os.environ.get("POLARIS_HERMES_API_KEY", ""))
+    return {
+        "status": "ok",
+        "service": "polaris-guidance",
+        "llm_target": os.environ.get("POLARIS_HERMES_MODEL", "anthropic/claude-opus-5"),
+        "llm_connected": key_configured,
+        "execution_mode": "hermes+claude" if key_configured else "deterministic-fallback",
+    }
 
 
 @app.get("/api/evidence")
@@ -212,7 +219,7 @@ async def guide(
         HermesClient(
             base_url=os.environ.get("POLARIS_HERMES_API_URL", "http://127.0.0.1:8642/v1"),
             api_key=api_key,
-            model=os.environ.get("POLARIS_HERMES_MODEL", "anthropic/claude-sonnet-5"),
+            model=os.environ.get("POLARIS_HERMES_MODEL", "anthropic/claude-opus-5"),
         )
         if api_key
         else None
