@@ -10,6 +10,8 @@ allowlisted logistics and routes emergencies or clinical questions to licensed h
 - Live AWS demo: <http://ec2-65-0-108-126.ap-south-1.compute.amazonaws.com/>
 - Independent Cloud Run demo: <https://polaris-guidance-mb3wwhqg6q-el.a.run.app/>
 - Presentation: [Polaris-Agents-That-Act-Submission.pptx](Polaris-Agents-That-Act-Submission.pptx)
+- TrueForge agent package: [skill](../trueforge/polaris-care-coordinator/SKILL.md) and
+  [saved-agent instructions](../trueforge/AGENT_INSTRUCTIONS.md)
 
 ## What the agent does
 
@@ -56,3 +58,11 @@ make quality
 ```
 
 GitHub Actions executes the same command on every push and pull request.
+
+## Organizer checklist
+
+- [x] Public GitHub repository with visible commit history.
+- [x] MIT license, setup instructions, and `.env.example`.
+- [x] Concise solution writeup in the README.
+- [x] TrueForge skill and agent configuration committed.
+- [ ] Public Google Drive demo video, no longer than 3:00, including at least 0:30 of TrueForge.

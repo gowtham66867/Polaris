@@ -2,6 +2,8 @@
 
 [![Quality](https://github.com/gowtham66867/Polaris/actions/workflows/quality.yml/badge.svg)](https://github.com/gowtham66867/Polaris/actions/workflows/quality.yml)
 
+MIT licensed. See [LICENSE](LICENSE).
+
 Polaris is a hospital-agnostic patient guidance and operations coordination layer. It gives a
 patient and their hospital team one shared view of the journey, identifies avoidable delays,
 and drafts the next coordination action. It does **not** diagnose, recommend treatment, or
@@ -18,6 +20,37 @@ with a Claude model selected through Hermes.
 
 The public demo uses synthetic data, ephemeral SQLite storage, and the deterministic safety
 engine. It does not contain cloud-hosted Hermes/Claude credentials and is not approved for PHI.
+
+## Submission writeup
+
+Hospital visits often stall because every handoff creates another queue and no one owns the next
+operational step. Polaris gives the patient one coordination agent while each hospital keeps an
+isolated orchestrator. The patient agent carries intent, accessibility needs, readiness, and schedule
+context. A hospital receives only the fields needed to prepare admission, pharmacy, physiotherapy,
+billing, transport, or another named service.
+
+The agent reaches operational coordination: it identifies an owner, detects barriers, proposes one
+allowlisted action, and records the approved outcome. It stops before clinical judgment. Emergency
+language routes directly to human staff; clinical questions go only to licensed clinicians. Polaris
+never diagnoses, interprets results, recommends treatment, changes priority, or invents capacity.
+
+The architecture combines deterministic safety gates with a three-role harness: patient advocate,
+operations coordinator, and independent safety reviewer. Strict schemas and a local policy engine
+validate every model draft. Provider, parsing, policy, or reviewer failure falls closed to
+deterministic guidance. A worker must approve an action before the synthetic workflow advances, and
+the timeline preserves the decision and execution result.
+
+TrueForge provides the judge-facing agent harness. The repository includes an importable Polaris
+skill and saved-agent instructions. TrueForge runs the live agent loop, persists the demonstration
+session, exposes the model trace, and pauses at the human checkpoint. The deployed FastAPI app keeps
+its own matching safety harness so the demo remains available if the local TrueForge session is
+offline.
+
+Real today: the public app, multi-hospital isolation, consent-scoped disclosure log, conflict
+handling, specialist fallback, audit events, 66 tests, 92% branch-aware coverage, and 8/8 safety
+evaluations. Mocked: patients, hospitals, queues, connectors, and the 41-minute counterfactual saving.
+Known limits include no production identity provider, PHI controls, certified clinical governance,
+write-enabled EHR integration, or hospital outcome study.
 
 ## The problem
 
@@ -69,6 +102,19 @@ Hospital teams ───┘                                      │
 - Local SQLite persistence and a responsive demo dashboard
 
 ## Run the demo
+
+### TrueForge judge harness
+
+Run TrueForge locally, configure a model in **Settings → Models**, import
+`trueforge/polaris-care-coordinator` from this public repository under **Settings → Skills**, and
+create the saved agent from [the supplied instructions](trueforge/AGENT_INSTRUCTIONS.md):
+
+```bash
+npx @truefoundry/trueforge@latest
+```
+
+Open [http://localhost:8790](http://localhost:8790). Local mode has no login by default, so keep it
+on localhost. The submission video must show at least 30 seconds of this TrueForge flow.
 
 ### 1. Start Hermes with a model
 
