@@ -9,6 +9,11 @@ This repository is a Polaris hackathon MVP built to use the local
 [Hermes Agent API server](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server)
 with a Claude model selected through Hermes.
 
+**Live demo:** [Polaris on Google Cloud Run](https://polaris-guidance-mb3wwhqg6q-el.a.run.app)
+
+The public demo uses synthetic data, ephemeral SQLite storage, and the deterministic safety
+engine. It does not contain cloud-hosted Hermes/Claude credentials and is not approved for PHI.
+
 ## The problem
 
 A patient's wait is often made of invisible handoffs: registration is waiting for records,
