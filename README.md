@@ -1,5 +1,7 @@
 # Polaris Guidance Agent
 
+[![Quality](https://github.com/gowtham66867/Polaris/actions/workflows/quality.yml/badge.svg)](https://github.com/gowtham66867/Polaris/actions/workflows/quality.yml)
+
 Polaris is a hospital-agnostic patient guidance and operations coordination layer. It gives a
 patient and their hospital team one shared view of the journey, identifies avoidable delays,
 and drafts the next coordination action. It does **not** diagnose, recommend treatment, or
@@ -148,6 +150,11 @@ minimum, the complete test suite, and adversarial safety evaluations. The curren
 baseline is 66 tests, 92% coverage, and 8/8 safety scenarios.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Security](SECURITY.md) for system boundaries.
+The hackathon package is documented in the [submission brief](docs/SUBMISSION.md), and the
+[final presentation](docs/Polaris-Agents-That-Act-Submission.pptx) is versioned with the code.
+
+Contributors should follow [CONTRIBUTING.md](CONTRIBUTING.md); the same `make quality` command is
+the required local and GitHub Actions gate.
 
 ## Separate AWS deployment
 

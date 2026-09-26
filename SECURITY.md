@@ -11,7 +11,9 @@ protected health information or to make clinical decisions.
 - A local policy engine independently checks every model-generated action.
 - An independent safety-review role must approve the draft.
 - Unsafe or malformed output fails closed to deterministic workflow guidance.
-- External actions are never executed; approval/dismissal is recorded as a separate event.
+- Approval can execute only allowlisted, non-clinical coordination actions such as a synthetic
+  handoff, owner escalation, status request, or discharge checklist. Every decision and action is
+  recorded as an immutable timeline event; clinical actions remain prohibited.
 - The FHIR adapter is read-only and requires TLS.
 
 ## Explicitly out of scope for the MVP
@@ -22,4 +24,3 @@ export, rate limiting, dependency/SBOM scanning, clinical governance, incident r
 jurisdiction-specific privacy and medical-device review.
 
 Report security issues privately to the project owner; do not include patient information.
-
