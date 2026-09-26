@@ -133,3 +133,22 @@ minimum, the complete test suite, and adversarial safety evaluations. The curren
 baseline is 42 tests, 95% coverage, and 8/8 safety scenarios.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Security](SECURITY.md) for system boundaries.
+
+## Separate AWS deployment
+
+The existing Cloud Run demo can remain online while a second, independent copy runs on AWS
+App Runner. The deployment script builds the container for `linux/amd64`, pushes it to a private
+Amazon ECR repository, creates the narrowly scoped App Runner ECR access role when needed, and
+creates or updates the service in Mumbai by default.
+
+Prerequisites are Docker, `jq`, AWS CLI authentication, and permission to manage ECR, IAM, and
+App Runner resources. Authenticate without placing long-lived credentials in this repository:
+
+```bash
+aws login
+AWS_REGION=ap-south-1 ./scripts/deploy_aws_apprunner.sh
+```
+
+The AWS deployment uses the same synthetic demo mode and safety fallback as Cloud Run. It does
+not include model credentials or permit real patient data. Connect a hosted Hermes or TrueForge
+service through a secret-managed integration rather than committing provider keys.
