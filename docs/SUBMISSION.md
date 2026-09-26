@@ -10,6 +10,7 @@ allowlisted logistics and routes emergencies or clinical questions to licensed h
 - Live AWS demo: <http://ec2-65-0-108-126.ap-south-1.compute.amazonaws.com/>
 - Independent Cloud Run demo: <https://polaris-guidance-mb3wwhqg6q-el.a.run.app/>
 - Presentation: [Polaris-Agents-That-Act-Submission.pptx](Polaris-Agents-That-Act-Submission.pptx)
+- Recording script: [DEMO_RECORDING_SCRIPT.md](DEMO_RECORDING_SCRIPT.md)
 - TrueForge agent package: [skill](../trueforge/polaris-care-coordinator/SKILL.md) and
   [saved-agent instructions](../trueforge/AGENT_INSTRUCTIONS.md)
 
