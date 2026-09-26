@@ -85,6 +85,10 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertEqual(settings["provider"], "gemini")
         self.assertEqual(settings["model"], "gemini-2.5-flash")
 
+    def test_smart_quotes_and_whitespace_are_stripped_from_keys(self):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "\u201cAIzaTest123\u201d \n"}, clear=True):
+            self.assertEqual(app_module.llm_settings()["api_key"], "AIzaTest123")
+
     def test_hermes_preferred_when_configured(self):
         env = {"OPENAI_API_KEY": "a", "POLARIS_HERMES_API_KEY": "b"}
         with patch.dict(os.environ, env, clear=True):

@@ -93,15 +93,24 @@ def dashboard() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+_KEY_JUNK = " \t\r\n\u00a0\u200b\"'\u201c\u201d\u2018\u2019`"
+
+
+def _clean_key(name: str) -> str:
+    """Strip whitespace and stray (including smart) quotes that break HTTP headers."""
+    value = os.environ.get(name, "").strip(_KEY_JUNK)
+    return value if value.isascii() else ""
+
+
 def llm_settings() -> dict[str, str]:
     """Resolve which model gateway the agents use.
 
     Hermes (local gateway) is preferred when configured; otherwise a direct Gemini or
     OpenAI key powers the same multi-agent pipeline. POLARIS_LLM_PROVIDER overrides.
     """
-    hermes_key = os.environ.get("POLARIS_HERMES_API_KEY", "")
-    gemini_key = os.environ.get("GEMINI_API_KEY", "")
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    hermes_key = _clean_key("POLARIS_HERMES_API_KEY")
+    gemini_key = _clean_key("GEMINI_API_KEY")
+    openai_key = _clean_key("OPENAI_API_KEY")
     provider = os.environ.get("POLARIS_LLM_PROVIDER", "").lower()
     if provider not in {"hermes", "gemini", "openai"}:
         if hermes_key:
