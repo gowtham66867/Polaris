@@ -136,17 +136,18 @@ See [Architecture](docs/ARCHITECTURE.md) and [Security](SECURITY.md) for system 
 
 ## Separate AWS deployment
 
-The existing Cloud Run demo can remain online while a second, independent copy runs on AWS
-App Runner. The deployment script builds the container for `linux/amd64`, pushes it to a private
-Amazon ECR repository, creates the narrowly scoped App Runner ECR access role when needed, and
-creates or updates the service in Mumbai by default.
+The existing Cloud Run demo can remain online while a second, independent copy runs on one small
+Amazon EC2 instance. This path is compatible with AWS's no-overage Free account plan. The script
+uses Mumbai by default, a `t3.micro` instance with standard CPU credits, one encrypted 8 GB volume,
+no autoscaling, and a security group that exposes only HTTP. Amazon Linux installs Docker and
+builds the exact Git revision supplied by the script.
 
-Prerequisites are Docker, `jq`, AWS CLI authentication, and permission to manage ECR, IAM, and
-App Runner resources. Authenticate without placing long-lived credentials in this repository:
+Prerequisites are Git, AWS CLI authentication, and permission to manage EC2 resources.
+Authenticate without placing long-lived credentials in this repository:
 
 ```bash
 aws login
-AWS_REGION=ap-south-1 ./scripts/deploy_aws_apprunner.sh
+AWS_REGION=ap-south-1 ./scripts/deploy_aws_ec2.sh
 ```
 
 The AWS deployment uses the same synthetic demo mode and safety fallback as Cloud Run. It does
