@@ -21,9 +21,9 @@ async function load() {
   state.hospitals = hospitals;
   document.querySelector("#model-status").textContent = !health.llm_connected
     ? `Live agents offline · Safe fallback active`
-    : health.llm_provider === "openai"
-      ? `Live agents · OpenAI ${health.llm_target}`
-      : `Live agents · Hermes + ${health.llm_target}`;
+    : health.llm_provider === "hermes"
+      ? `Live agents · Hermes + ${health.llm_target}`
+      : `Live agents · ${health.llm_target}`;
   state.health = health;
   renderMetrics(metrics);
   renderEvidence();

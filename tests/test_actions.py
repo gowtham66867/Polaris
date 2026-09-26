@@ -79,6 +79,12 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertEqual(settings["provider"], "openai")
         self.assertEqual(settings["base_url"], "https://api.openai.com/v1")
 
+    def test_gemini_key_selects_gemini_over_openai(self):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "g", "OPENAI_API_KEY": "o"}, clear=True):
+            settings = app_module.llm_settings()
+        self.assertEqual(settings["provider"], "gemini")
+        self.assertEqual(settings["model"], "gemini-2.5-flash")
+
     def test_hermes_preferred_when_configured(self):
         env = {"OPENAI_API_KEY": "a", "POLARIS_HERMES_API_KEY": "b"}
         with patch.dict(os.environ, env, clear=True):

@@ -126,6 +126,51 @@ class HermesClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("model_options", FakeAsyncClient.last_payload)
         self.assertEqual(FakeAsyncClient.last_payload["text"], {"format": {"type": "json_object"}})
 
+    async def test_gemini_provider_uses_generate_content(self):
+        captured = {}
+
+        class GeminiClient(FakeAsyncClient):
+            async def post(self, url, *, json, headers):
+                captured.update(url=url, json=json, headers=headers)
+                body = {
+                    "patient_need": "A clear update",
+                    "unanswered_questions": [],
+                    "communication_note": "Use plain language",
+                }
+                return httpx.Response(
+                    200,
+                    request=httpx.Request("POST", url),
+                    json={
+                        "candidates": [{"content": {"parts": [{"text": json_module.dumps(body)}]}}]
+                    },
+                )
+
+        client = HermesClient(
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gkey",
+            "gemini-2.5-flash",
+            provider="gemini",
+        )
+        with patch("polaris_guidance.hermes_client.httpx.AsyncClient", GeminiClient):
+            result = await client.complete_json(
+                role=AgentRole.PATIENT_ADVOCATE,
+                instructions="Summarize",
+                payload={"case": "demo"},
+                output_type=PatientBrief,
+            )
+        self.assertEqual(result.patient_need, "A clear update")
+        self.assertTrue(captured["url"].endswith("/models/gemini-2.5-flash:generateContent"))
+        self.assertEqual(captured["headers"], {"x-goog-api-key": "gkey"})
+        config = captured["json"]["generationConfig"]
+        self.assertEqual(config["responseMimeType"], "application/json")
+        self.assertEqual(config["thinkingConfig"], {"thinkingBudget": 0})
+
+    def test_gemini_extractor_rejects_empty(self):
+        from polaris_guidance.hermes_client import _extract_gemini_json
+
+        with self.assertRaisesRegex(ValueError, "candidates"):
+            _extract_gemini_json({})
+
 
 if __name__ == "__main__":
     unittest.main()

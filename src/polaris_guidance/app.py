@@ -96,14 +96,31 @@ def dashboard() -> FileResponse:
 def llm_settings() -> dict[str, str]:
     """Resolve which model gateway the agents use.
 
-    Hermes (local gateway) is preferred when configured; otherwise a direct OpenAI key
-    (the hackathon-issued OPENAI_API_KEY) powers the same multi-agent pipeline.
+    Hermes (local gateway) is preferred when configured; otherwise a direct Gemini or
+    OpenAI key powers the same multi-agent pipeline. POLARIS_LLM_PROVIDER overrides.
     """
     hermes_key = os.environ.get("POLARIS_HERMES_API_KEY", "")
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     provider = os.environ.get("POLARIS_LLM_PROVIDER", "").lower()
-    if provider not in {"hermes", "openai"}:
-        provider = "hermes" if hermes_key or not openai_key else "openai"
+    if provider not in {"hermes", "gemini", "openai"}:
+        if hermes_key:
+            provider = "hermes"
+        elif gemini_key:
+            provider = "gemini"
+        elif openai_key:
+            provider = "openai"
+        else:
+            provider = "hermes"
+    if provider == "gemini":
+        return {
+            "provider": "gemini",
+            "api_key": gemini_key,
+            "base_url": os.environ.get(
+                "POLARIS_GEMINI_API_URL", "https://generativelanguage.googleapis.com/v1beta"
+            ),
+            "model": os.environ.get("POLARIS_GEMINI_MODEL", "gemini-2.5-flash"),
+        }
     if provider == "openai":
         return {
             "provider": "openai",
@@ -123,7 +140,7 @@ def llm_settings() -> dict[str, str]:
 def health() -> dict[str, object]:
     settings = llm_settings()
     key_configured = bool(settings["api_key"])
-    mode = "hermes+claude" if settings["provider"] == "hermes" else "openai"
+    mode = "hermes+claude" if settings["provider"] == "hermes" else settings["provider"]
     return {
         "status": "ok",
         "service": "polaris-guidance",

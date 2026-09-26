@@ -153,11 +153,12 @@ aws login
 AWS_REGION=ap-south-1 ./scripts/deploy_aws_ec2.sh
 ```
 
-### Live agents on AWS (OpenAI) and in-place updates
+### Live agents on AWS (Gemini or OpenAI) and in-place updates
 
 Without a model key the agents fail closed to the deterministic policy engine. To run the live
-three-agent pipeline on AWS, store the hackathon `OPENAI_API_KEY` as a SecureString parameter
-`/polaris/openai_api_key` in Systems Manager Parameter Store (ap-south-1), then redeploy in place
+three-agent pipeline on AWS, store a Gemini key as SecureString `/polaris/gemini_api_key` (or the
+hackathon OpenAI key as `/polaris/openai_api_key`) in Systems Manager Parameter Store
+(ap-south-1), then redeploy in place
 (the public URL does not change):
 
 ```bash
@@ -166,7 +167,8 @@ AWS_REGION=ap-south-1 ./scripts/update_aws_ec2.sh
 
 The key is read on the instance at container start; it is never committed or placed in user
 data. Locally, Hermes stays the preferred gateway when `POLARIS_HERMES_API_KEY` is set;
-otherwise `OPENAI_API_KEY` selects OpenAI (`POLARIS_OPENAI_MODEL`, default `gpt-4.1-mini`).
+otherwise `GEMINI_API_KEY` selects Gemini (`POLARIS_GEMINI_MODEL`, default `gemini-2.5-flash`),
+then `OPENAI_API_KEY` selects OpenAI (`POLARIS_OPENAI_MODEL`, default `gpt-4.1-mini`).
 Approving guidance now executes the coordination action (handoff, owner escalation, status
 request, or discharge checklist) and records it on the shared timeline.
 

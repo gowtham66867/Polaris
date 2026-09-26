@@ -9,6 +9,8 @@ AWS_REGION="${AWS_REGION:-ap-south-1}"
 INSTANCE_NAME="${POLARIS_AWS_INSTANCE_NAME:-polaris-guidance-aws}"
 REVISION="${POLARIS_REVISION:-main}"
 KEY_PARAMETER="${POLARIS_OPENAI_KEY_PARAMETER:-/polaris/openai_api_key}"
+GEMINI_KEY_PARAMETER="${POLARIS_GEMINI_KEY_PARAMETER:-/polaris/gemini_api_key}"
+GEMINI_MODEL="${POLARIS_GEMINI_MODEL:-gemini-2.5-flash}"
 OPENAI_MODEL="${POLARIS_OPENAI_MODEL:-gpt-4.1-mini}"
 ROLE_NAME="polaris-ec2-ssm"
 
@@ -31,7 +33,7 @@ if ! aws iam get-role --role-name "${ROLE_NAME}" >/dev/null 2>&1; then
   aws iam add-role-to-instance-profile --instance-profile-name "${ROLE_NAME}" --role-name "${ROLE_NAME}"
 fi
 aws iam put-role-policy --role-name "${ROLE_NAME}" --policy-name polaris-read-model-key \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ssm:GetParameter\",\"Resource\":\"arn:aws:ssm:${AWS_REGION}:${account_id}:parameter${KEY_PARAMETER}\"}]}"
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"ssm:GetParameter\",\"Resource\":[\"arn:aws:ssm:${AWS_REGION}:${account_id}:parameter${KEY_PARAMETER}\",\"arn:aws:ssm:${AWS_REGION}:${account_id}:parameter${GEMINI_KEY_PARAMETER}\"]}]}"
 
 associated="$(aws ec2 describe-iam-instance-profile-associations --region "${AWS_REGION}" \
   --filters "Name=instance-id,Values=${instance_id}" 'Name=state,Values=associated,associating' \
@@ -63,13 +65,15 @@ git checkout --quiet --force "origin/${REVISION}" 2>/dev/null || git checkout --
 rev=\$(git rev-parse --short HEAD)
 docker build --quiet --tag polaris-guidance:\$rev . >/dev/null
 key=\$(aws ssm get-parameter --region ${AWS_REGION} --name ${KEY_PARAMETER} --with-decryption --query Parameter.Value --output text 2>/dev/null || true)
+gkey=\$(aws ssm get-parameter --region ${AWS_REGION} --name ${GEMINI_KEY_PARAMETER} --with-decryption --query Parameter.Value --output text 2>/dev/null || true)
 docker rm -f polaris-guidance >/dev/null 2>&1 || true
 docker run --detach --name polaris-guidance --restart unless-stopped --publish 80:8080 \
   --env POLARIS_AUTH_MODE=demo --env POLARIS_DB_PATH=/tmp/polaris-guidance.db \
   --env POLARIS_OPENAI_MODEL=${OPENAI_MODEL} --env OPENAI_API_KEY="\$key" \
+  --env POLARIS_GEMINI_MODEL=${GEMINI_MODEL} --env GEMINI_API_KEY="\$gkey" \
   polaris-guidance:\$rev >/dev/null
 docker image prune --force >/dev/null
-echo "deployed \$rev; model key configured: \$([[ -n "\$key" ]] && echo yes || echo no)"
+echo "deployed \$rev; gemini key: \$([[ -n "\$gkey" ]] && echo yes || echo no); openai key: \$([[ -n "\$key" ]] && echo yes || echo no)"
 REMOTE
 )"
 
